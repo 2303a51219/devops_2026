@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RaViT-AE · Heritage Intelligence Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0D1210;
+    --bg2: #111916;
+    --bg3: #162118;
+    --surface: #1C2B22;
+    --surface2: #243328;
+    --border: rgba(92,210,143,0.12);
+    --border2: rgba(92,210,143,0.22);
+    --teal: #5CD28F;
+    --teal-dim: #2A7A52;
+    --teal-deep: #1A4D35;
+    --amber: #E8B84B;
+    --amber-dim: #7A5C1A;
+    --coral: #E87B5C;
+    --coral-dim: #7A3520;
+    --text: #E8F0EA;
+    --text2: #8BA891;
+    --text3: #4D6B55;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Syne', sans-serif;
+    --serif: 'Lora', serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--display);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── OVERLAY ── */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(13,18,16,0.85);
+    backdrop-filter: blur(6px);
+    z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .overlay.active { opacity: 1; pointer-events: all; }
+
+  .auth-card {
+    background: var(--bg2);
+    border: 0.5px solid var(--border2);
+    border-radius: 16px;
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 420px;
+    margin: 1rem;
+    transform: translateY(16px);
+    transition: transform 0.3s cubic-bezier(0.16,1,0.3,1);
+    position: relative;
+  }
+  .overlay.active .auth-card { transform: translateY(0); }
+
+  .auth-logo {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 1.75rem;
+  }
+  .auth-logo-icon {
+    width: 36px; height: 36px;
+    background: var(--teal-deep);
+    border: 1px solid var(--teal-dim);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .auth-logo-icon svg { width: 18px; height: 18px; }
+  .auth-logo-text { font-size: 15px; font-weight: 700; letter-spacing: -0.2px; color: var(--text); }
+  .auth-logo-sub { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+
+  .auth-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
+  .auth-desc { font-size: 13px; color: var(--text2); margin-bottom: 1.75rem; line-height: 1.5; }
+
+  .form-group { margin-bottom: 1rem; }
+  .form-label { font-family: var(--mono); font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 6px; }
+  .form-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 0.5px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--display);
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input::placeholder { color: var(--text3); }
+  .form-input:focus { border-color: var(--teal-dim); }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--teal);
+    color: #0D1210;
+    border: none;
+    border-radius: 8px;
+    padding: 11px;
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .auth-footer { margin-top: 1.25rem; text-align: center; font-size: 12px; color: var(--text3); }
+  .auth-footer a { color: var(--teal-dim); text-decoration: none; cursor: pointer; }
+  .auth-footer a:hover { color: var(--teal); }
+
+  .auth-close {
+    position: absolute; top: 1rem; right: 1rem;
+    background: none; border: none;
+    color: var(--text3); cursor: pointer; font-size: 18px; line-height: 1;
+    padding: 4px 8px; border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .auth-close:hover { color: var(--text); }
+
+  .error-msg {
+    font-size: 12px; color: var(--coral);
+    font-family: var(--mono);
+    margin-top: 8px; display: none;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 0 2rem;
+    height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(13,18,16,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .nav-icon {
+    width: 32px; height: 32px;
+    background: var(--teal-deep);
+    border: 1px solid var(--teal-dim);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nav-icon svg { width: 16px; height: 16px; }
+  .nav-title { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+  .nav-badge { font-family: var(--mono); font-size: 9px; color: var(--teal); background: var(--teal-deep); border: 0.5px solid var(--teal-dim); border-radius: 3px; padding: 1px 5px; margin-left: 4px; }
+
+  .nav-links { display: flex; align-items: center; gap: 0; }
+  .nav-link {
+    font-size: 13px; color: var(--text2);
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+    cursor: pointer;
+    background: none; border: none; font-family: var(--display);
+  }
+  .nav-link:hover { color: var(--text); background: var(--surface); }
+
+  .nav-actions { display: flex; align-items: center; gap: 8px; }
+  .btn-nav-outline {
+    font-size: 13px; padding: 6px 16px;
+    border: 0.5px solid var(--border2);
+    border-radius: 7px; background: none;
+    color: var(--text2); cursor: pointer;
+    font-family: var(--display);
+    transition: all 0.15s;
+  }
+  .btn-nav-outline:hover { border-color: var(--teal-dim); color: var(--teal); }
+
+  .btn-nav-fill {
+    font-size: 13px; padding: 6px 16px;
+    border: none; border-radius: 7px;
+    background: var(--teal); color: #0D1210;
+    cursor: pointer; font-family: var(--display);
+    font-weight: 600;
+    transition: opacity 0.15s;
+  }
+  .btn-nav-fill:hover { opacity: 0.85; }
+
+  .user-pill {
+    display: none; align-items: center; gap: 8px;
+    background: var(--surface); border: 0.5px solid var(--border2);
+    border-radius: 20px; padding: 4px 12px 4px 6px;
+  }
+  .user-pill.visible { display: flex; }
+  .user-avatar {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--teal-deep); border: 1px solid var(--teal-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; color: var(--teal);
+  }
+  .user-name { font-size: 12px; font-weight: 500; color: var(--text); }
+  .btn-signout {
+    font-size: 12px; color: var(--text3); background: none; border: none;
+    cursor: pointer; font-family: var(--display); padding: 0;
+    transition: color 0.15s;
+  }
+  .btn-signout:hover { color: var(--coral); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 6rem 2rem 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black, transparent);
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse, rgba(92,210,143,0.06) 0%, transparent 70%);
+    top: 50%; left: 50%; transform: translate(-50%, -60%);
+    pointer-events: none;
+  }
+
+  .hero-content { position: relative; z-index: 1; text-align: center; max-width: 780px; }
+
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--teal); letter-spacing: 0.1em; text-transform: uppercase;
+    background: var(--teal-deep); border: 0.5px solid var(--teal-dim);
+    border-radius: 20px; padding: 5px 14px;
+    margin-bottom: 1.5rem;
+    animation: fadeUp 0.6s ease both;
+  }
+  .hero-eyebrow-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+  .hero-title {
+    font-size: clamp(40px, 7vw, 72px);
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1.05;
+    margin-bottom: 1.25rem;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  .hero-title em { font-style: italic; font-family: var(--serif); color: var(--teal); }
+
+  .hero-sub {
+    font-size: 17px; color: var(--text2); line-height: 1.7;
+    max-width: 560px; margin: 0 auto 2.5rem;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .hero-cta {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+
+  .btn-hero-primary {
+    padding: 13px 28px; border-radius: 9px;
+    background: var(--teal); color: #0D1210;
+    border: none; font-family: var(--display);
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(92,210,143,0.25); }
+
+  .btn-hero-outline {
+    padding: 13px 28px; border-radius: 9px;
+    background: none; color: var(--text);
+    border: 0.5px solid var(--border2);
+    font-family: var(--display); font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-hero-outline:hover { border-color: var(--teal-dim); color: var(--teal); }
+
+  @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+  .hero-stats {
+    display: flex; gap: 0; margin-top: 4rem; justify-content: center;
+    border: 0.5px solid var(--border2); border-radius: 12px;
+    overflow: hidden; animation: fadeUp 0.6s 0.4s ease both;
+  }
+  .stat-item {
+    padding: 1.25rem 2rem; text-align: center;
+    border-right: 0.5px solid var(--border);
+    background: rgba(28,43,34,0.6);
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-val { font-size: 26px; font-weight: 700; color: var(--teal); letter-spacing: -0.5px; }
+  .stat-label { font-family: var(--mono); font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; }
+
+  /* ── SECTIONS ── */
+  section { padding: 5rem 2rem; }
+  .section-inner { max-width: 1080px; margin: 0 auto; }
+  .section-tag { font-family: var(--mono); font-size: 11px; color: var(--teal); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem; }
+  .section-title { font-size: clamp(28px, 4vw, 42px); font-weight: 700; letter-spacing: -1px; line-height: 1.1; margin-bottom: 1rem; }
+  .section-title em { font-style: italic; font-family: var(--serif); color: var(--teal); }
+  .section-desc { font-size: 15px; color: var(--text2); line-height: 1.75; max-width: 560px; }
+
+  /* ── FEATURES ── */
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1px; margin-top: 3rem; border: 0.5px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .feature-card {
+    padding: 1.75rem;
+    background: var(--bg2);
+    transition: background 0.2s;
+  }
+  .feature-card:hover { background: var(--surface); }
+  .feature-icon {
+    width: 40px; height: 40px; border-radius: 8px;
+    background: var(--teal-deep); border: 0.5px solid var(--teal-dim);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 1rem;
+  }
+  .feature-icon svg { width: 18px; height: 18px; }
+  .feature-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .feature-desc { font-size: 13px; color: var(--text2); line-height: 1.6; }
+
+  /* ── METRICS ── */
+  .metrics-section { background: var(--bg2); border-top: 0.5px solid var(--border); border-bottom: 0.5px solid var(--border); }
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0; border: 0.5px solid var(--border); border-radius: 12px; overflow: hidden; margin-top: 3rem; }
+  .metric-block {
+    padding: 2rem 1.75rem;
+    border-right: 0.5px solid var(--border);
+    background: var(--bg3);
+  }
+  .metric-block:last-child { border-right: none; }
+  .metric-num { font-size: 36px; font-weight: 800; letter-spacing: -1px; color: var(--teal); }
+  .metric-desc { font-size: 13px; color: var(--text2); margin-top: 6px; line-height: 1.5; }
+  .metric-tag { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 8px; }
+
+  /* ── HOW IT WORKS ── */
+  .steps { margin-top: 3rem; display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: grid; grid-template-columns: 48px 1fr;
+    gap: 1.5rem; padding: 1.75rem 0;
+    border-bottom: 0.5px solid var(--border);
+    align-items: start;
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    width: 40px; height: 40px;
+    border: 0.5px solid var(--teal-dim);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--teal);
+    flex-shrink: 0;
+  }
+  .step-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .step-desc { font-size: 13px; color: var(--text2); line-height: 1.65; }
+  .step-tag { display: inline-block; font-family: var(--mono); font-size: 10px; color: var(--amber); background: var(--amber-dim); border-radius: 4px; padding: 2px 7px; margin-top: 8px; }
+
+  /* ── CTA SECTION ── */
+  .cta-section {
+    text-align: center; padding: 6rem 2rem;
+    background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 50%, var(--bg) 100%);
+  }
+  .cta-title { font-size: clamp(28px, 4vw, 48px); font-weight: 800; letter-spacing: -1.5px; margin-bottom: 1rem; }
+  .cta-title em { font-style: italic; font-family: var(--serif); color: var(--teal); }
+  .cta-desc { font-size: 15px; color: var(--text2); max-width: 480px; margin: 0 auto 2.5rem; line-height: 1.7; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 0.5px solid var(--border);
+    padding: 2.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem;
+  }
+  .footer-brand { font-family: var(--mono); font-size: 12px; color: var(--text3); }
+  .footer-links { display: flex; gap: 1.5rem; }
+  .footer-link { font-size: 12px; color: var(--text3); text-decoration: none; transition: color 0.15s; }
+  .footer-link:hover { color: var(--teal); }
+
+  /* ── DASHBOARD PREVIEW (logged in) ── */
+  .dashboard-section { display: none; padding: 5rem 2rem 3rem; }
+  .dashboard-section.visible { display: block; }
+  .dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+  .dash-header h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+  .dash-header span { font-family: var(--mono); font-size: 12px; color: var(--text3); }
+  .dash-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
+  .dm-card { background: var(--surface); border: 0.5px solid var(--border2); border-radius: 10px; padding: 1rem 1.25rem; }
+  .dm-label { font-family: var(--mono); font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; }
+  .dm-val { font-size: 28px; font-weight: 700; color: var(--teal); margin-top: 4px; letter-spacing: -1px; }
+  .dm-sub { font-size: 11px; color: var(--text2); margin-top: 3px; }
+  .dash-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; }
+  .ds-cell { background: var(--surface); border: 0.5px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .ds-cell:hover { border-color: var(--teal-dim); background: var(--surface2); }
+  .ds-cell.alert { border-color: var(--coral-dim); background: rgba(122,53,32,0.15); }
+  .ds-cell.warn { border-color: var(--amber-dim); background: rgba(122,92,26,0.15); }
+  .ds-num { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+  .ds-score { font-family: var(--mono); font-size: 14px; font-weight: 500; margin-top: 3px; }
+  .ds-cell.alert .ds-score { color: var(--coral); }
+  .ds-cell.warn .ds-score { color: var(--amber); }
+  .ds-cell:not(.alert):not(.warn) .ds-score { color: var(--teal); }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 2rem; right: 2rem; z-index: 300;
+    background: var(--surface2); border: 0.5px solid var(--border2);
+    border-radius: 10px; padding: 12px 18px;
+    font-size: 13px; color: var(--text);
+    transform: translateY(80px); opacity: 0;
+    transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+    display: flex; align-items: center; gap: 10px;
+    max-width: 320px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast-icon { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); flex-shrink: 0; }
+  .toast-icon.warn { background: var(--amber); }
+</style>
+</head>
+<body>
+
+<!-- ── AUTH OVERLAY ── -->
+<div class="overlay" id="authOverlay">
+  <div class="auth-card" id="authCard">
+    <button class="auth-close" onclick="closeAuth()">✕</button>
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#5CD28F" stroke-width="1.5">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="auth-logo-text">RaViT-AE</div>
+        <div class="auth-logo-sub">Heritage Intelligence</div>
+      </div>
+    </div>
+
+    <!-- Sign In Form -->
+    <div id="signInForm">
+      <h2 class="auth-title">Welcome back</h2>
+      <p class="auth-desc">Sign in to access the Bangudae petroglyph monitoring dashboard and real-time anomaly detection.</p>
+      <div class="form-group">
+        <label class="form-label">Email address</label>
+        <input type="email" class="form-input" id="loginEmail" placeholder="researcher@knuh.ac.kr" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-input" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter') doSignIn()" />
+      </div>
+      <div class="error-msg" id="loginError">Invalid credentials. Use demo@ravit.ai / demo123</div>
+      <button class="btn-primary" onclick="doSignIn()">Sign in to dashboard</button>
+      <div class="auth-footer">
+        New to RaViT-AE? <a onclick="switchToSignUp()">Create an account</a>
+        &nbsp;·&nbsp; <a onclick="demoLogin()">Use demo account</a>
+      </div>
+    </div>
+
+    <!-- Sign Up Form -->
+    <div id="signUpForm" style="display:none;">
+      <h2 class="auth-title">Request access</h2>
+      <p class="auth-desc">Create your researcher account to monitor and protect cultural heritage sites.</p>
+      <div class="form-group">
+        <label class="form-label">Full name</label>
+        <input type="text" class="form-input" id="regName" placeholder="Dr. Jeongmin Yu" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Institutional email</label>
+        <input type="email" class="form-input" id="regEmail" placeholder="researcher@knuh.ac.kr" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Create password</label>
+        <input type="password" class="form-input" id="regPassword" placeholder="Min. 6 characters" />
+      </div>
+      <div class="error-msg" id="regError">Please fill in all fields.</div>
+      <button class="btn-primary" onclick="doSignUp()">Create account</button>
+      <div class="auth-footer">Already have access? <a onclick="switchToSignIn()">Sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast">
+  <div class="toast-icon" id="toastIcon"></div>
+  <span id="toastMsg">Signed in successfully</span>
+</div>
+
+<!-- ── NAV ── -->
+<nav>
+  <a class="nav-brand" href="#">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#5CD28F" stroke-width="1.5">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+    <span class="nav-title">RaViT-AE</span>
+    <span class="nav-badge">v1.0</span>
+  </a>
+
+  <div class="nav-links">
+    <a class="nav-link" href="#features">Features</a>
+    <a class="nav-link" href="#metrics">Results</a>
+    <a class="nav-link" href="#how">How It Works</a>
+  </div>
+
+  <div class="nav-actions">
+    <div id="userPill" class="user-pill">
+      <div class="user-avatar" id="userAvatar">DR</div>
+      <span class="user-name" id="userName">Demo User</span>
+      <button class="btn-signout" onclick="doSignOut()">Sign out</button>
+    </div>
+    <button class="btn-nav-outline" id="navSignIn" onclick="openSignIn()">Sign in</button>
+    <button class="btn-nav-fill" id="navSignUp" onclick="openSignUp()">Get access</button>
+  </div>
+</nav>
+
+<!-- ── DASHBOARD (visible when logged in) ── -->
+<div class="dashboard-section" id="dashSection">
+  <div class="section-inner">
+    <div class="dash-header">
+      <div>
+        <h2>Monitoring Dashboard</h2>
+        <span id="dashWelcome">Welcome back — last updated just now</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--teal);background:var(--teal-deep);border:0.5px solid var(--teal-dim);border-radius:4px;padding:4px 10px;">● Live</span>
+      </div>
+    </div>
+    <div class="dash-metrics">
+      <div class="dm-card"><div class="dm-label">AUC-ROC</div><div class="dm-val">0.976</div><div class="dm-sub">Model performance</div></div>
+      <div class="dm-card"><div class="dm-label">Accuracy</div><div class="dm-val">0.944</div><div class="dm-sub">Classification score</div></div>
+      <div class="dm-card"><div class="dm-label">F1-Score</div><div class="dm-val">0.936</div><div class="dm-sub">Harmonic mean</div></div>
+      <div class="dm-card"><div class="dm-label">Anomalies today</div><div class="dm-val" style="color:var(--amber);">3</div><div class="dm-sub">Flooding · Structures</div></div>
+      <div class="dm-card"><div class="dm-label">Images processed</div><div class="dm-val">2,861</div><div class="dm-sub">Since Nov 2021</div></div>
+    </div>
+    <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;">Section Status</div>
+    <div class="dash-sections">
+      <div class="ds-cell alert"><div class="ds-num">#00</div><div class="ds-score">0.82</div></div>
+      <div class="ds-cell alert"><div class="ds-num">#01</div><div class="ds-score">0.79</div></div>
+      <div class="ds-cell alert"><div class="ds-num">#02</div><div class="ds-score">0.81</div></div>
+      <div class="ds-cell warn"><div class="ds-num">#03</div><div class="ds-score">0.55</div></div>
+      <div class="ds-cell warn"><div class="ds-num">#04</div><div class="ds-score">0.58</div></div>
+      <div class="ds-cell warn"><div class="ds-num">#05</div><div class="ds-score">0.60</div></div>
+      <div class="ds-cell warn"><div class="ds-num">#06</div><div class="ds-score">0.48</div></div>
+      <div class="ds-cell"><div class="ds-num">#07</div><div class="ds-score">0.38</div></div>
+      <div class="ds-cell warn"><div class="ds-num">#08</div><div class="ds-score">0.42</div></div>
+      <div class="ds-cell"><div class="ds-num">#09</div><div class="ds-score">0.35</div></div>
+      <div class="ds-cell"><div class="ds-num">#10</div><div class="ds-score">0.12</div></div>
+      <div class="ds-cell"><div class="ds-num">#11</div><div class="ds-score">0.09</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── HERO ── -->
+<section class="hero" id="heroSection">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-content">
+    <div class="hero-eyebrow">
+      <div class="hero-eyebrow-dot"></div>
+      Region-Attentive Vision Transformer
+    </div>
+    <h1 class="hero-title">
+      Intelligent<br>
+      <em>Heritage</em><br>
+      Monitoring
+    </h1>
+    <p class="hero-sub">
+      Unsupervised anomaly detection for cultural heritage preservation. Protecting the Bangudae Terrace petroglyph through AI-powered continuous surveillance.
+    </p>
+    <div class="hero-cta">
+      <button class="btn-hero-primary" onclick="openSignUp()">Request access</button>
+      <button class="btn-hero-outline" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">Learn more</button>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-item"><div class="stat-val">0.976</div><div class="stat-label">AUC-ROC</div></div>
+      <div class="stat-item"><div class="stat-val">0.944</div><div class="stat-label">Accuracy</div></div>
+      <div class="stat-item"><div class="stat-val">0.936</div><div class="stat-label">F1-Score</div></div>
+      <div class="stat-item"><div class="stat-val">2,861</div><div class="stat-label">Images</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ── -->
+<section id="features">
+  <div class="section-inner">
+    <div class="section-tag">Core technology</div>
+    <h2 class="section-title">Built for <em>complex</em><br>heritage environments</h2>
+    <p class="section-desc">RaViT-AE combines Vision Transformers with region-attentive patch projection to detect anomalies that traditional models miss.</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#5CD28F" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </div>
+        <div class="feature-title">Region-Attentive Patches</div>
+        <div class="feature-desc">Higher-dimensional embeddings applied to anomaly-prone zones in the lower sections, where flooding and human activity concentrate.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#5CD28F" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <div class="feature-title">F-SSIM Loss Function</div>
+        <div class="feature-desc">Combines structural similarity with high-level feature loss from pretrained ResNet152 to preserve both texture detail and semantic structure.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#5CD28F" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div class="feature-title">Global Context Learning</div>
+        <div class="feature-desc">ViT encoder captures holistic image relationships, overcoming CNN's fixed receptive field limitations in high-contrast rock surfaces.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#5CD28F" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <div class="feature-title">Unsupervised Learning</div>
+        <div class="feature-desc">Trained exclusively on normal images. No labeled anomaly data required — ideal for rare, unpredictable heritage site events.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#5CD28F" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="feature-title">4 Anomaly Types</div>
+        <div class="feature-desc">Detects flooding, scaffolding structures, unauthorized persons, and mobile equipment across 12 sectional CCTV images.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#5CD28F" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="feature-title">Youden's J Threshold</div>
+        <div class="feature-desc">Automatically calibrates per-section detection thresholds by optimising the gap between true and false positive rates on the ROC curve.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── METRICS ── -->
+<section class="metrics-section" id="metrics">
+  <div class="section-inner">
+    <div class="section-tag">Performance results</div>
+    <h2 class="section-title">Numbers that <em>matter</em></h2>
+    <p class="section-desc">Evaluated across 10 petroglyph sections on a dataset spanning November 2021 to December 2022.</p>
+    <div class="metrics-grid">
+      <div class="metric-block">
+        <div class="metric-num">0.976</div>
+        <div class="metric-desc">AUC-ROC — 0.93% above the next best model (SSIM-ViT at 0.967)</div>
+        <div class="metric-tag">area under curve</div>
+      </div>
+      <div class="metric-block">
+        <div class="metric-num">0.944</div>
+        <div class="metric-desc">Classification accuracy — 30% higher than the weakest baseline (SkipCAE)</div>
+        <div class="metric-tag">mean accuracy</div>
+      </div>
+      <div class="metric-block">
+        <div class="metric-num">0.936</div>
+        <div class="metric-desc">F1-Score — harmonic mean of precision and recall across all sections</div>
+        <div class="metric-tag">f1 score</div>
+      </div>
+      <div class="metric-block">
+        <div class="metric-num">1.000</div>
+        <div class="metric-desc">Perfect AUC achieved on sections 00, 01, and 02 — the most flood-vulnerable zones</div>
+        <div class="metric-tag">best section AUC</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ── -->
+<section id="how">
+  <div class="section-inner">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:start;">
+      <div>
+        <div class="section-tag">Methodology</div>
+        <h2 class="section-title">How <em>RaViT-AE</em><br>works</h2>
+        <p class="section-desc">A transformer-based autoencoder that learns to reconstruct normal petroglyph images, then flags anything it cannot reconstruct well as an anomaly.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <div>
+            <div class="step-title">Patch division & region-attentive embedding</div>
+            <div class="step-desc">Input images are split into 16×16 patches. Lower sections receive high-dimensional embeddings (D=1024), upper sections lower (D=768), focusing capacity on flood-prone zones.</div>
+            <span class="step-tag">Embedding · Group Norm · Sigmoid</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div>
+            <div class="step-title">Transformer encoder — global feature learning</div>
+            <div class="step-desc">6-layer ViT encoder with 8 attention heads processes all patch embeddings simultaneously via multi-head self-attention, capturing long-range spatial relationships.</div>
+            <span class="step-tag">MSA · FFN · Positional Encoding</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div>
+            <div class="step-title">Transformer decoder — image reconstruction</div>
+            <div class="step-desc">6-layer decoder with cross-attention reconstructs the full image from encoded features through linear projection, rearrangement, and resize layers.</div>
+            <span class="step-tag">Cross-Attention · Linear Projection</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <div>
+            <div class="step-title">F-SSIM loss optimisation</div>
+            <div class="step-desc">Training minimises α·DSSIM + (1−α)·FeatureLoss, where FeatureLoss compares ResNet152 high-level features of original and reconstructed images. α=0.8.</div>
+            <span class="step-tag">SSIM + ResNet152 Feature Loss</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">05</div>
+          <div>
+            <div class="step-title">Anomaly scoring via SSIM map</div>
+            <div class="step-desc">At inference, the SSIM map between original and reconstructed image reveals anomaly regions as low-similarity zones. Sections exceeding Youden's J threshold are flagged.</div>
+            <span class="step-tag">SSIM Map · Youden's J Index</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<div class="cta-section">
+  <div class="section-tag" style="text-align:center;">Join the research</div>
+  <h2 class="cta-title">Start monitoring<br><em>heritage</em> today</h2>
+  <p class="cta-desc">Access real-time anomaly detection, historical trend analysis, and SSIM map visualisations for Bangudae Terrace and beyond.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+    <button class="btn-hero-primary" onclick="openSignUp()">Create free account</button>
+    <button class="btn-hero-outline" onclick="demoLogin()">Try demo access</button>
+  </div>
+</div>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-brand">© 2024 RaViT-AE · Korea National University of Heritage · IEEE Access</div>
+  <div class="footer-links">
+    <a class="footer-link" href="#">Documentation</a>
+    <a class="footer-link" href="#">Dataset</a>
+    <a class="footer-link" href="#">Research paper</a>
+    <a class="footer-link" href="#">Contact</a>
+  </div>
+</footer>
+
+<script>
+let currentUser = null;
+const DEMO = { email: 'demo@ravit.ai', password: 'demo123', name: 'Demo Researcher' };
+
+function openSignIn() {
+  document.getElementById('signInForm').style.display = '';
+  document.getElementById('signUpForm').style.display = 'none';
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('authOverlay').classList.add('active');
+}
+function openSignUp() {
+  document.getElementById('signInForm').style.display = 'none';
+  document.getElementById('signUpForm').style.display = '';
+  document.getElementById('regError').style.display = 'none';
+  document.getElementById('authOverlay').classList.add('active');
+}
+function closeAuth() {
+  document.getElementById('authOverlay').classList.remove('active');
+}
+function switchToSignUp() { openSignUp(); }
+function switchToSignIn() { openSignIn(); }
+
+document.getElementById('authOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeAuth();
+});
+
+function doSignIn() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  if (email === DEMO.email && pass === DEMO.password) {
+    signInUser(DEMO.name, email);
+  } else if (email && pass.length >= 6) {
+    const name = email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    signInUser(name, email);
+  } else {
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+
+function doSignUp() {
+  const name = document.getElementById('regName').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const pass = document.getElementById('regPassword').value;
+  if (!name || !email || pass.length < 6) {
+    document.getElementById('regError').style.display = 'block';
+    document.getElementById('regError').textContent = pass.length < 6 ? 'Password must be at least 6 characters.' : 'Please fill in all fields.';
+    return;
+  }
+  signInUser(name, email);
+}
+
+function demoLogin() {
+  closeAuth();
+  document.getElementById('loginEmail').value = DEMO.email;
+  document.getElementById('loginPassword').value = DEMO.password;
+  setTimeout(() => signInUser(DEMO.name, DEMO.email), 100);
+}
+
+function signInUser(name, email) {
+  currentUser = { name, email };
+  closeAuth();
+  const initials = name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+  document.getElementById('userAvatar').textContent = initials;
+  document.getElementById('userName').textContent = name.split(' ')[0];
+  document.getElementById('dashWelcome').textContent = `Welcome back, ${name.split(' ')[0]} — last updated just now`;
+  document.getElementById('userPill').classList.add('visible');
+  document.getElementById('navSignIn').style.display = 'none';
+  document.getElementById('navSignUp').style.display = 'none';
+  document.getElementById('dashSection').classList.add('visible');
+  document.getElementById('heroSection').style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('Signed in as ' + name.split(' ')[0], false);
+}
+
+function doSignOut() {
+  currentUser = null;
+  document.getElementById('userPill').classList.remove('visible');
+  document.getElementById('navSignIn').style.display = '';
+  document.getElementById('navSignUp').style.display = '';
+  document.getElementById('dashSection').classList.remove('visible');
+  document.getElementById('heroSection').style.display = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('Signed out successfully', true);
+}
+
+function showToast(msg, warn) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toastIcon').className = 'toast-icon' + (warn ? ' warn' : '');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>
